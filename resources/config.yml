@@ -1,0 +1,3 @@
+debug: false
+db:
+    provider: minecarts

@@ -1,0 +1,15 @@
+name: DBPermissions
+main: com.minecarts.dbpermissions.DBPermissions
+version: ${pom.version}
+website: http://minecarts.com/
+author: verrier
+depend: [DBQuery]
+description: Database backed permission system
+commands:
+    perm:
+        description: Basic command to alter permissions from in game
+        usage: "/<command> "
+permissions:
+    permissions.admin:
+        description: "All administrative permission functions"
+        default: op
