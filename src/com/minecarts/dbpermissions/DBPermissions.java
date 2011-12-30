@@ -131,27 +131,23 @@ public class DBPermissions extends org.bukkit.plugin.java.JavaPlugin {
         }
 
         //Find the group permissions (and any default groups), and assign those permissions
-        new Query("SELECT * FROM `permissions`, `player_groups`, `groups` WHERE (`permissions`.`world` = ? OR `permissions`.`world` = '*') AND  (`groups`.`default` = 1  AND `groups`.`group` = `permissions`.`identifier`) OR ( (`permissions`.`identifier` = `player_groups`.`group`) AND `groups`.`default` = 0 AND (`player_groups`.`player` = ? ) AND `permissions`.`type` = 'group')"){
+        new Query("SELECT `permissions`.* FROM `permissions`, `groups` WHERE `groups`.`group` = ? AND `permissions`.`identifier` = `groups`.`group` AND `permissions`.`type` = 'group'" +
+                " UNION" +
+                " SELECT `permissions`.* FROM `permissions`, `player_groups` WHERE `player_groups`.`player` = ? AND `permissions`.`identifier` = `player_groups`.`group` AND `permissions`.`type` = 'group'" +
+                " UNION" +
+                " SELECT `permissions`.* FROM `permissions` WHERE `permissions`.`identifier` = ? AND `permissions`.`type` = 'player'"){
             @Override
             public void onFetch(ArrayList<HashMap> rows){
                 for(HashMap row : rows){
-                    attachment.setPermission((String)row.get("permission"),(Boolean)row.get("value"));
-                    debug("Set GROUP ("+ row.get("identifier") + ") " + row.get("permission") + " for " + player.getName() + " to " + row.get("value"));
-                }
-
-                //Now find the player permissions, and assign those, so they always override the group ones
-                new Query("SELECT `permission`, `value` FROM `permissions` WHERE `permissions`.`identifier` = ? AND `permissions`.`type` = 'player' AND (`permissions`.`world` = ? OR `permissions`.`world` = '*')"){
-                    @Override
-                    public void onFetch(ArrayList<HashMap> rows){
-                        for(HashMap row : rows){
-                            attachment.setPermission((String)row.get("permission"),(Boolean)row.get("value"));
-                            debug("Set PLAYER " + row.get("permission") + " for " + player.getName() + " to " + row.get("value"));
-                        }
+                    String w = (String)row.get("world");
+                    if(world.getName().equalsIgnoreCase(w) || w.equals("*")){
+                        attachment.setPermission((String)row.get("permission"),(Integer)row.get("value") == 1);
+                        debug("Set ["+ row.get("type") + ":" + row.get("identifier") +"][W:"+ row.get("world")+"] " + row.get("permission") + " for " + player.getName() + " to " + row.get("value"));
                     }
-                }.fetch(player.getName(),
-                        world.getName());
+                }
             }
-        }.fetch(world.getName(),
+        }.fetch(getConfig().getString("default_group"),
+                player.getName(),
                 player.getName());
     }
     
