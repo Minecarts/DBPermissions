@@ -2,19 +2,19 @@ package com.minecarts.dbpermissions;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.logging.Logger;
 import java.util.logging.Level;
 import java.text.MessageFormat;
 
 import com.minecarts.dbquery.DBQuery;
 import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
 import org.bukkit.World;
 import org.bukkit.event.Event.Type;
 import org.bukkit.event.Event.Priority;
 
-import org.bukkit.event.player.PlayerJoinEvent;
-import org.bukkit.event.player.PlayerListener;
-import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.player.*;
 
 
 import org.bukkit.command.CommandExecutor;
@@ -22,7 +22,6 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.command.Command;
 
 import org.bukkit.entity.Player;
-import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.permissions.PermissionAttachment;
 
 
@@ -43,6 +42,38 @@ public class DBPermissions extends org.bukkit.plugin.java.JavaPlugin {
             public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
                 if(!sender.hasPermission("permission.admin")) return true; // "hide" command output for non-ops
 
+                if(args[0].equalsIgnoreCase("refresh")) {
+                    if(args.length == 1){
+                        for(Player p : getServer().getOnlinePlayers()){
+                            calculatePermissions(p,p.getWorld());
+                        }
+                        sender.sendMessage(ChatColor.GRAY + "Refreshing permissions for all online players (async).");
+                    } else if(args.length == 2){
+                        List<Player> players = Bukkit.matchPlayer(args[1]);
+                        if(players.size() == 0){
+                            sender.sendMessage(ChatColor.GRAY + "No players matched query: " + args[1]);
+                            return true;
+                        }
+                        for(Player p : players){
+                            sender.sendMessage(ChatColor.GRAY + "Refreshing permissions for " + p.getName() + " (async).");
+                            calculatePermissions(p);
+                        }
+                    } else {
+                        return false;
+                    }
+                    return true;
+                }
+                if(args[0].equalsIgnoreCase("debug")) {
+                    if(getConfig().getBoolean("debug")){
+                        sender.sendMessage("Permissions debug disabled");
+                        getConfig().set("debug",false);
+                    } else {
+                        sender.sendMessage("Permissions debug enabled");
+                        getConfig().set("debug",true);
+                    }
+                    saveConfig();
+                    return true;
+                }
                 if(args[0].equalsIgnoreCase("reload")) {
                     DBPermissions.this.reloadConfig();
                     sender.sendMessage("DBPermissions config reloaded.");
@@ -60,7 +91,7 @@ public class DBPermissions extends org.bukkit.plugin.java.JavaPlugin {
                 return false;
             }
         });
-        
+
         //Create the player listener
         PlayerListener listener = new PlayerListener(){
             @Override
@@ -71,6 +102,11 @@ public class DBPermissions extends org.bukkit.plugin.java.JavaPlugin {
 
             @Override
             public void onPlayerQuit(PlayerQuitEvent event) {
+                unregisterPlayer(event.getPlayer());
+            }
+
+            @Override
+            public void onPlayerKick(PlayerKickEvent event) {
                 unregisterPlayer(event.getPlayer());
             }
 
@@ -90,6 +126,11 @@ public class DBPermissions extends org.bukkit.plugin.java.JavaPlugin {
         getConfig().options().copyDefaults(true);
         this.saveConfig();
 
+        //Calculate permissions for any online players
+        for(Player p : getServer().getOnlinePlayers()){
+            calculatePermissions(p,p.getWorld());
+        }
+        
         log("Version {0} enabled.", getDescription().getVersion());
     }
 

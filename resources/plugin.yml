@@ -8,7 +8,7 @@ description: Database backed permission system
 commands:
     perm:
         description: Basic command to alter permissions from in game
-        usage: "/<command> "
+        usage: "/<command> [reload | refresh [player]]"
 permissions:
     permissions.admin:
         description: "All administrative permission functions"
