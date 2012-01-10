@@ -26,7 +26,7 @@ import org.bukkit.permissions.PermissionAttachment;
 
 
 public class DBPermissions extends org.bukkit.plugin.java.JavaPlugin {
-    private static final Logger logger = Logger.getLogger("com.minecarts.cowardkiller");
+    private static final Logger logger = Logger.getLogger("com.minecarts.dbpermissions");
 
     private DBQuery dbq;
 
