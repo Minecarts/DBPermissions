@@ -109,18 +109,17 @@ public class DBPermissions extends org.bukkit.plugin.java.JavaPlugin {
             public void onPlayerKick(PlayerKickEvent event) {
                 unregisterPlayer(event.getPlayer());
             }
-
+            
             @Override
-            public void onPlayerTeleport(PlayerTeleportEvent event){
-                if(event.getFrom().getWorld().equals(event.getTo().getWorld())) return;
-                calculatePermissions(event.getPlayer(),event.getTo().getWorld());
+            public void onPlayerChangedWorld(PlayerChangedWorldEvent event){
+                calculatePermissions(event.getPlayer(),event.getPlayer().getWorld());
             }
         };
 
 
         getServer().getPluginManager().registerEvent(Type.PLAYER_JOIN, listener, Priority.Lowest, this);
         getServer().getPluginManager().registerEvent(Type.PLAYER_QUIT, listener, Priority.Monitor, this);
-        getServer().getPluginManager().registerEvent(Type.PLAYER_TELEPORT, listener, Priority.Monitor, this);
+        getServer().getPluginManager().registerEvent(Type.PLAYER_CHANGED_WORLD, listener, Priority.Monitor, this);
 
         //Save the default config
         getConfig().options().copyDefaults(true);
