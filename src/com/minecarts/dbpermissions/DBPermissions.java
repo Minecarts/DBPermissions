@@ -127,6 +127,7 @@ public class DBPermissions extends org.bukkit.plugin.java.JavaPlugin {
 
         //Calculate permissions for any online players
         for(Player p : getServer().getOnlinePlayers()){
+            registerPlayer(p);
             calculatePermissions(p,p.getWorld());
         }
         
@@ -216,6 +217,9 @@ public class DBPermissions extends org.bukkit.plugin.java.JavaPlugin {
     
 //Internal functionality
     public void onDisable() {
+        for(Player p : getServer().getOnlinePlayers()){
+            unregisterPlayer(p);
+        }
     }
 
     public void log(String message) {
