@@ -166,8 +166,10 @@ public class DBPermissions extends org.bukkit.plugin.java.JavaPlugin {
         //Unset all the permissions for this player as we're recalculating them
         //  We're doing this outside the query to make sure that if for some reason the DB
         //  goes down this player doesn't have permissions they shouldn't have
-        for(String key : attachment.getPermissions().keySet()){
-            attachment.unsetPermission(key);
+        if(attachment != null){
+            for(String key : attachment.getPermissions().keySet()){
+                attachment.unsetPermission(key);
+            }
         }
 
         //Find the group permissions (and any default groups), and assign those permissions
