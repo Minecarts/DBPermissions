@@ -14,6 +14,9 @@ import org.bukkit.World;
 import org.bukkit.event.Event.Type;
 import org.bukkit.event.Event.Priority;
 
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
+import org.bukkit.event.Listener;
 import org.bukkit.event.player.*;
 
 
@@ -25,7 +28,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.permissions.PermissionAttachment;
 
 
-public class DBPermissions extends org.bukkit.plugin.java.JavaPlugin {
+public class DBPermissions extends org.bukkit.plugin.java.JavaPlugin implements Listener {
     private static final Logger logger = Logger.getLogger("com.minecarts.dbpermissions");
 
     private DBQuery dbq;
@@ -33,6 +36,26 @@ public class DBPermissions extends org.bukkit.plugin.java.JavaPlugin {
     protected boolean debug;
     protected HashMap<Player,PermissionAttachment> attachments = new HashMap<Player, PermissionAttachment>();
 
+    @EventHandler(priority = EventPriority.LOWEST)
+    public void onPlayerJoin(PlayerJoinEvent event){
+        registerPlayer(event.getPlayer());
+        calculatePermissions(event.getPlayer());
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onPlayerQuit(PlayerQuitEvent event) {
+        unregisterPlayer(event.getPlayer());
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onPlayerKick(PlayerKickEvent event) {
+        unregisterPlayer(event.getPlayer());
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onPlayerChangedWorld(PlayerChangedWorldEvent event){
+        calculatePermissions(event.getPlayer(),event.getPlayer().getWorld());
+    }
 
     public void onEnable() {
         dbq = (DBQuery) getServer().getPluginManager().getPlugin("DBQuery");
@@ -92,34 +115,7 @@ public class DBPermissions extends org.bukkit.plugin.java.JavaPlugin {
             }
         });
 
-        //Create the player listener
-        PlayerListener listener = new PlayerListener(){
-            @Override
-            public void onPlayerJoin(PlayerJoinEvent event){
-                registerPlayer(event.getPlayer());
-                calculatePermissions(event.getPlayer());
-            }
-
-            @Override
-            public void onPlayerQuit(PlayerQuitEvent event) {
-                unregisterPlayer(event.getPlayer());
-            }
-
-            @Override
-            public void onPlayerKick(PlayerKickEvent event) {
-                unregisterPlayer(event.getPlayer());
-            }
-            
-            @Override
-            public void onPlayerChangedWorld(PlayerChangedWorldEvent event){
-                calculatePermissions(event.getPlayer(),event.getPlayer().getWorld());
-            }
-        };
-
-
-        getServer().getPluginManager().registerEvent(Type.PLAYER_JOIN, listener, Priority.Lowest, this);
-        getServer().getPluginManager().registerEvent(Type.PLAYER_QUIT, listener, Priority.Monitor, this);
-        getServer().getPluginManager().registerEvent(Type.PLAYER_CHANGED_WORLD, listener, Priority.Monitor, this);
+        getServer().getPluginManager().registerEvents(this,this);
 
         //Save the default config
         getConfig().options().copyDefaults(true);
