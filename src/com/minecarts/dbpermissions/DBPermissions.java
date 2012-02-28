@@ -185,7 +185,7 @@ public class DBPermissions extends org.bukkit.plugin.java.JavaPlugin implements 
                     }
                 }
             }
-        }.fetch(getConfig().getString("default_group"),
+        }.sync().fetch(getConfig().getString("default_group"),
                 player.getName(),
                 player.getName());
     }
