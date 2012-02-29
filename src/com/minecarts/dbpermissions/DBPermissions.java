@@ -37,7 +37,7 @@ public class DBPermissions extends org.bukkit.plugin.java.JavaPlugin implements 
     protected HashMap<Player,PermissionAttachment> attachments = new HashMap<Player, PermissionAttachment>();
 
     @EventHandler(priority = EventPriority.LOWEST)
-    public void onPlayerJoin(PlayerJoinEvent event){
+    public void onPlayerLogin(PlayerLoginEvent event){
         registerPlayer(event.getPlayer());
         calculatePermissions(event.getPlayer());
     }
