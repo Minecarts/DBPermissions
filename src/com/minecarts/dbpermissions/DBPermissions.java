@@ -11,12 +11,10 @@ import com.minecarts.dbquery.DBQuery;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.World;
-import org.bukkit.event.Event.Type;
-import org.bukkit.event.Event.Priority;
 
+import org.bukkit.event.Listener;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
-import org.bukkit.event.Listener;
 import org.bukkit.event.player.*;
 
 
@@ -115,16 +113,12 @@ public class DBPermissions extends org.bukkit.plugin.java.JavaPlugin implements 
             }
         });
 
-        getServer().getPluginManager().registerEvents(this,this);
-
-        //Save the default config
-        getConfig().options().copyDefaults(true);
-        this.saveConfig();
+        getServer().getPluginManager().registerEvents(this, this);
 
         //Calculate permissions for any online players
         for(Player p : getServer().getOnlinePlayers()){
             registerPlayer(p);
-            calculatePermissions(p,p.getWorld());
+            calculatePermissions(p, p.getWorld());
         }
         
         log("Version {0} enabled.", getDescription().getVersion());
@@ -144,8 +138,12 @@ public class DBPermissions extends org.bukkit.plugin.java.JavaPlugin implements 
     
     public void unregisterPlayer(Player player){
         if(attachments.containsKey(player)) {
-            try { player.removeAttachment(attachments.get(player)); }
-            catch (IllegalArgumentException ex) { debug("Unregistering for " + player.getName() + " failed: No attachment"); }
+            try {
+                player.removeAttachment(attachments.get(player));
+            }
+            catch (IllegalArgumentException ex) {
+                debug("Unregistering for " + player.getName() + " failed: No attachment");
+            }
             this.attachments.remove(player);
             debug("Attachment unregistered for " + player.getName());
         } else {
@@ -188,6 +186,8 @@ public class DBPermissions extends org.bukkit.plugin.java.JavaPlugin implements 
         }.sync().fetch(getConfig().getString("default_group"),
                 player.getName(),
                 player.getName());
+        
+        getServer().getPluginManager().callEvent(new PermissionsCalculated(player));
     }
     
 //Database functionality
