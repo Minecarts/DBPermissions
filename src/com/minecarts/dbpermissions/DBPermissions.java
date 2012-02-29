@@ -3,7 +3,6 @@ package com.minecarts.dbpermissions;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.logging.Logger;
 import java.util.logging.Level;
 import java.text.MessageFormat;
 
@@ -27,15 +26,13 @@ import org.bukkit.permissions.PermissionAttachment;
 
 
 public class DBPermissions extends org.bukkit.plugin.java.JavaPlugin implements Listener {
-    private static final Logger logger = Logger.getLogger("com.minecarts.dbpermissions");
-
     private DBQuery dbq;
 
-    protected boolean debug;
     protected HashMap<Player,PermissionAttachment> attachments = new HashMap<Player, PermissionAttachment>();
 
+    
     @EventHandler(priority = EventPriority.LOWEST)
-    public void onPlayerLogin(PlayerLoginEvent event){
+    public void onPlayerLogin(PlayerLoginEvent event) {
         registerPlayer(event.getPlayer());
         calculatePermissions(event.getPlayer());
     }
@@ -51,14 +48,16 @@ public class DBPermissions extends org.bukkit.plugin.java.JavaPlugin implements 
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
-    public void onPlayerChangedWorld(PlayerChangedWorldEvent event){
-        calculatePermissions(event.getPlayer(),event.getPlayer().getWorld());
+    public void onPlayerChangedWorld(PlayerChangedWorldEvent event) {
+        calculatePermissions(event.getPlayer(), event.getPlayer().getWorld());
     }
-
+    
+    
+    @Override
     public void onEnable() {
         dbq = (DBQuery) getServer().getPluginManager().getPlugin("DBQuery");
 
-        // reload config command
+        
         getCommand("perm").setExecutor(new CommandExecutor() {
             public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
                 if(!sender.hasPermission("permission.admin")) return true; // "hide" command output for non-ops
@@ -115,28 +114,35 @@ public class DBPermissions extends org.bukkit.plugin.java.JavaPlugin implements 
 
         getServer().getPluginManager().registerEvents(this, this);
 
-        //Calculate permissions for any online players
+        // calculate permissions for any online players
         for(Player p : getServer().getOnlinePlayers()){
             registerPlayer(p);
-            calculatePermissions(p, p.getWorld());
+            calculatePermissions(p);
         }
         
         log("Version {0} enabled.", getDescription().getVersion());
     }
+    
+    @Override
+    public void onDisable() {
+        for(Player p : getServer().getOnlinePlayers()) {
+            unregisterPlayer(p);
+        }
+    }
 
 
-//Permission functionality
-    public void registerPlayer(Player player){
-        if(attachments.containsKey(player)){
+    
+    public void registerPlayer(Player player) {
+        if(attachments.containsKey(player)) {
             debug("Warning while registering:" + player.getName() + " already had an attachment");
             unregisterPlayer(player);
         }
         PermissionAttachment attachment = player.addAttachment(this);
-        attachments.put(player,attachment);
+        attachments.put(player, attachment);
         debug("Added attachment for " + player.getName());
     }
     
-    public void unregisterPlayer(Player player){
+    public void unregisterPlayer(Player player) {
         if(attachments.containsKey(player)) {
             try {
                 player.removeAttachment(attachments.get(player));
@@ -151,52 +157,61 @@ public class DBPermissions extends org.bukkit.plugin.java.JavaPlugin implements 
         }
     }
 
-    public void calculatePermissions(final Player player){
-        calculatePermissions(player,player.getWorld());
+    public void calculatePermissions(final Player player) {
+        calculatePermissions(player, player.getWorld());
     }
-    public void calculatePermissions(final Player player, final World world){
-        //Get this players attachment
+    public void calculatePermissions(final Player player, final World world) {
+        // get this player's attachment
         final PermissionAttachment attachment = attachments.get(player);
         
-        //Unset all the permissions for this player as we're recalculating them
-        //  We're doing this outside the query to make sure that if for some reason the DB
-        //  goes down this player doesn't have permissions they shouldn't have
-        if(attachment != null){
-            for(String key : attachment.getPermissions().keySet()){
-                attachment.unsetPermission(key);
-            }
-        }
-
-        //Find the group permissions (and any default groups), and assign those permissions
+        // find the group permissions (and any default groups), and assign those permissions
         new Query("SELECT `permissions`.* FROM `permissions`, `groups` WHERE `groups`.`group` = ? AND `permissions`.`identifier` = `groups`.`group` AND `permissions`.`type` = 'group'" +
                 " UNION" +
                 " SELECT `permissions`.* FROM `permissions`, `player_groups` WHERE `player_groups`.`player` = ? AND `permissions`.`identifier` = `player_groups`.`group` AND `permissions`.`type` = 'group'" +
                 " UNION" +
-                " SELECT `permissions`.* FROM `permissions` WHERE `permissions`.`identifier` = ? AND `permissions`.`type` = 'player'"){
+                " SELECT `permissions`.* FROM `permissions` WHERE `permissions`.`identifier` = ? AND `permissions`.`type` = 'player'") {
+            
+                    
             @Override
-            public void onFetch(ArrayList<HashMap> rows){
-                for(HashMap row : rows){
-                    String w = (String)row.get("world");
-                    if(world.getName().equalsIgnoreCase(w) || w.equals("*")){
-                        attachment.setPermission((String)row.get("permission"),(Integer)row.get("value") == 1);
-                        debug("Set ["+ row.get("type") + ":" + row.get("identifier") +"][W:"+ row.get("world")+"] " + row.get("permission") + " for " + player.getName() + " to " + row.get("value"));
+            public void onBeforeCallback() {
+                // unset old player permissions
+                if(attachment != null) {
+                    for(String key : attachment.getPermissions().keySet()) {
+                        attachment.unsetPermission(key);
                     }
                 }
             }
-        }.sync().fetch(getConfig().getString("default_group"),
-                player.getName(),
-                player.getName());
+            
+            @Override
+            public void onFetch(ArrayList<HashMap> rows) {
+                // set new player permissions
+                for(HashMap row : rows) {
+                    String w = (String) row.get("world");
+                    if(world.getName().equalsIgnoreCase(w) || w.equals("*")) {
+                        attachment.setPermission((String) row.get("permission"), (Integer) row.get("value") == 1);
+                        debug("Set [" + row.get("type") + ":" + row.get("identifier") + "][W:" + row.get("world") + "] " + row.get("permission") + " for " + player.getName() + " to " + row.get("value"));
+                    }
+                }
+            }
+            
+            @Override
+            public void onAfterCallback() {
+                getServer().getPluginManager().callEvent(new PermissionsCalculated(player));
+            }
+            
+        }.fetch(getConfig().getString("default_group"),
+            player.getName(),
+            player.getName());
         
-        getServer().getPluginManager().callEvent(new PermissionsCalculated(player));
     }
     
-//Database functionality
+    
     class Query extends com.minecarts.dbquery.Query {
         public Query(String sql) {
             super(DBPermissions.this, dbq.getProvider(getConfig().getString("db.provider")), sql);
         }
         @Override
-        public void onComplete(FinalQuery query) {
+        public void onBeforeCallback(FinalQuery query) {
             if(query.elapsed() > 500) {
                 log(MessageFormat.format("Slow query took {0,number,#} ms", query.elapsed()));
             }
@@ -211,18 +226,12 @@ public class DBPermissions extends org.bukkit.plugin.java.JavaPlugin implements 
     }
     
     
-//Internal functionality
-    public void onDisable() {
-        for(Player p : getServer().getOnlinePlayers()){
-            unregisterPlayer(p);
-        }
-    }
-
+    
     public void log(String message) {
         log(Level.INFO, message);
     }
     public void log(Level level, String message) {
-        logger.log(level, MessageFormat.format("{0}> {1}", getDescription().getName(), message));
+        getLogger().log(level, message);
     }
     public void log(String message, Object... args) {
         log(MessageFormat.format(message, args));
@@ -232,9 +241,9 @@ public class DBPermissions extends org.bukkit.plugin.java.JavaPlugin implements 
     }
 
     public void debug(String message) {
-        if(getConfig().getBoolean("debug")) log(message);
+        log(Level.FINE, message);
     }
     public void debug(String message, Object... args) {
-        if(getConfig().getBoolean("debug")) log(message, args);
+        debug(MessageFormat.format(message, args));
     }
 }
