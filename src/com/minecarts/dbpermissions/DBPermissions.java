@@ -161,7 +161,7 @@ public class DBPermissions extends org.bukkit.plugin.java.JavaPlugin implements 
         calculatePermissions(player, player.getWorld());
     }
     public void calculatePermissions(final Player player, final World world) {
-        debug("Calculating player permissions from database for ", player.getName());
+        debug("Calculating player permissions from database for {0}", player.getName());
         
         // get this player's attachment
         final PermissionAttachment attachment = attachments.get(player);
