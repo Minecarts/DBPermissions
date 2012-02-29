@@ -83,17 +83,6 @@ public class DBPermissions extends org.bukkit.plugin.java.JavaPlugin implements 
                     }
                     return true;
                 }
-                if(args[0].equalsIgnoreCase("debug")) {
-                    if(getConfig().getBoolean("debug")){
-                        sender.sendMessage("Permissions debug disabled");
-                        getConfig().set("debug",false);
-                    } else {
-                        sender.sendMessage("Permissions debug enabled");
-                        getConfig().set("debug",true);
-                    }
-                    saveConfig();
-                    return true;
-                }
                 if(args[0].equalsIgnoreCase("reload")) {
                     DBPermissions.this.reloadConfig();
                     sender.sendMessage("DBPermissions config reloaded.");
@@ -120,7 +109,7 @@ public class DBPermissions extends org.bukkit.plugin.java.JavaPlugin implements 
             calculatePermissions(p);
         }
         
-        log("Version {0} enabled.", getDescription().getVersion());
+        log("Version {0} enabled with logger \"{1}\"", getDescription().getVersion(), getLogger().getName());
     }
     
     @Override
