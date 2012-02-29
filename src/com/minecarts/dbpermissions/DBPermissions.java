@@ -161,19 +161,19 @@ public class DBPermissions extends org.bukkit.plugin.java.JavaPlugin implements 
         calculatePermissions(player, player.getWorld());
     }
     public void calculatePermissions(final Player player, final World world) {
+        debug("Calculating player permissions from database for ", player.getName());
+        
         // get this player's attachment
         final PermissionAttachment attachment = attachments.get(player);
         
         // find the group permissions (and any default groups), and assign those permissions
-        new Query("SELECT `permissions`.* FROM `permissions`, `groups` WHERE `groups`.`group` = ? AND `permissions`.`identifier` = `groups`.`group` AND `permissions`.`type` = 'group'" +
-                " UNION" +
-                " SELECT `permissions`.* FROM `permissions`, `player_groups` WHERE `player_groups`.`player` = ? AND `permissions`.`identifier` = `player_groups`.`group` AND `permissions`.`type` = 'group'" +
-                " UNION" +
-                " SELECT `permissions`.* FROM `permissions` WHERE `permissions`.`identifier` = ? AND `permissions`.`type` = 'player'") {
+        new Query("SELECT `permissions`.* FROM `permissions`, `groups` WHERE `groups`.`group` = ? AND `permissions`.`identifier` = `groups`.`group` AND `permissions`.`type` = 'group'"
+               + " UNION SELECT `permissions`.* FROM `permissions`, `player_groups` WHERE `player_groups`.`player` = ? AND `permissions`.`identifier` = `player_groups`.`group` AND `permissions`.`type` = 'group'"
+               + " UNION SELECT `permissions`.* FROM `permissions` WHERE `permissions`.`identifier` = ? AND `permissions`.`type` = 'player'") {
             
-                    
             @Override
             public void onBeforeCallback() {
+                debug("Unsetting player permissions for {0}", player.getName());
                 // unset old player permissions
                 if(attachment != null) {
                     for(String key : attachment.getPermissions().keySet()) {
@@ -184,6 +184,7 @@ public class DBPermissions extends org.bukkit.plugin.java.JavaPlugin implements 
             
             @Override
             public void onFetch(ArrayList<HashMap> rows) {
+                debug("Setting new player permissions for {0}", player.getName());
                 // set new player permissions
                 for(HashMap row : rows) {
                     String w = (String) row.get("world");
@@ -196,6 +197,7 @@ public class DBPermissions extends org.bukkit.plugin.java.JavaPlugin implements 
             
             @Override
             public void onAfterCallback() {
+                debug("Calling event PermissionsCalculated for {0}", player.getName());
                 getServer().getPluginManager().callEvent(new PermissionsCalculated(player));
             }
             
