@@ -11,6 +11,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.World;
 
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.event.Listener;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -157,8 +158,11 @@ public class DBPermissions extends org.bukkit.plugin.java.JavaPlugin implements 
         
         //Set the defualt permissions here to "fix" some plugins who cannot listen to the
         //  PermissionsCalculated event
-        for(String key : getConfig().getConfigurationSection("default_permissions").getKeys(false)){
-            attachment.setPermission(key,getConfig().getBoolean("default_permissions."+key));
+        ConfigurationSection defaults = getConfig().getConfigurationSection("default_permissions");
+        for(String key : defaults.getKeys(true)){
+            boolean value = defaults.getBoolean(key);
+            debug("Set default permissions: " + key + " to " + value);
+            attachment.setPermission(key,value);
         }
         
         // find the group permissions (and any default groups), and assign those permissions
