@@ -151,9 +151,15 @@ public class DBPermissions extends org.bukkit.plugin.java.JavaPlugin implements 
     }
     public void calculatePermissions(final Player player, final World world) {
         debug("Calculating player permissions from database for {0}", player.getName());
-        
+                
         // get this player's attachment
         final PermissionAttachment attachment = attachments.get(player);
+        
+        //Set the defualt permissions here to "fix" some plugins who cannot listen to the
+        //  PermissionsCalculated event
+        for(String key : getConfig().getConfigurationSection("default_permissions").getKeys(false)){
+            attachment.setPermission(key,getConfig().getBoolean("defualt_permissions."+key));
+        }
         
         // find the group permissions (and any default groups), and assign those permissions
         new Query("SELECT `permissions`.* FROM `permissions`, `groups` WHERE `groups`.`group` = ? AND `permissions`.`identifier` = `groups`.`group` AND `permissions`.`type` = 'group'"

@@ -1,4 +1,8 @@
 default_group: default
-
+default_permissions:
+    multiverse.access.new_highridge: true
+    multiverse.access.new_nether: true
+    multiverse.access.spawns: true
+    multiverse.access.jungle: true
 db:
     provider: minecarts
