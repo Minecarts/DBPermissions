@@ -1,8 +1,6 @@
 package com.minecarts.dbpermissions;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
+import java.util.*;
 import java.util.logging.Level;
 import java.text.MessageFormat;
 
@@ -159,12 +157,15 @@ public class DBPermissions extends org.bukkit.plugin.java.JavaPlugin implements 
         //Set the defualt permissions here to "fix" some plugins who cannot listen to the
         //  PermissionsCalculated event
         ConfigurationSection defaults = getConfig().getConfigurationSection("default_permissions");
-        for(String key : defaults.getKeys(true)){
-            boolean value = defaults.getBoolean(key);
-            debug("Set default permissions: " + key + " to " + value);
-            attachment.setPermission(key,value);
+        Map<String,Object> keySet = defaults.getValues(true);
+        Iterator it = keySet.entrySet().iterator();
+        while (it.hasNext()) {
+            Map.Entry pairs = (Map.Entry)it.next();
+            debug("Set default permission: " + pairs.getKey().toString() + " = " + Boolean.parseBoolean(pairs.getValue().toString()));
+            attachment.setPermission(pairs.getKey().toString(),Boolean.parseBoolean(pairs.getValue().toString()));
+            it.remove(); // avoids a ConcurrentModificationException
         }
-        
+
         // find the group permissions (and any default groups), and assign those permissions
         new Query("SELECT `permissions`.* FROM `permissions`, `groups` WHERE `groups`.`group` = ? AND `permissions`.`identifier` = `groups`.`group` AND `permissions`.`type` = 'group'"
                + " UNION SELECT `permissions`.* FROM `permissions`, `player_groups` WHERE `player_groups`.`player` = ? AND `permissions`.`identifier` = `player_groups`.`group` AND `permissions`.`type` = 'group'"

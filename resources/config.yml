@@ -4,5 +4,8 @@ default_permissions:
     multiverse.access.new_nether: true
     multiverse.access.spawns: true
     multiverse.access.jungle: true
+    multiverse.access.world: true
+    multiverse.access.world_nether: true
+    multiverse.access.world_the_end: true
 db:
     provider: minecarts
