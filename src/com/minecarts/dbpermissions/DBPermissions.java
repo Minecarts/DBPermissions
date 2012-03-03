@@ -158,7 +158,7 @@ public class DBPermissions extends org.bukkit.plugin.java.JavaPlugin implements 
         //Set the defualt permissions here to "fix" some plugins who cannot listen to the
         //  PermissionsCalculated event
         for(String key : getConfig().getConfigurationSection("default_permissions").getKeys(false)){
-            attachment.setPermission(key,getConfig().getBoolean("defualt_permissions."+key));
+            attachment.setPermission(key,getConfig().getBoolean("default_permissions."+key));
         }
         
         // find the group permissions (and any default groups), and assign those permissions
