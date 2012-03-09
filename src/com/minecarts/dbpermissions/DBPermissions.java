@@ -4,6 +4,7 @@ import java.util.*;
 import java.util.logging.Level;
 import java.text.MessageFormat;
 
+import com.avaje.ebean.LogLevel;
 import com.minecarts.dbquery.DBQuery;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -153,6 +154,10 @@ public class DBPermissions extends org.bukkit.plugin.java.JavaPlugin implements 
                 
         // get this player's attachment
         final PermissionAttachment attachment = attachments.get(player);
+        if(attachment == null){
+            log(Level.SEVERE,"ERROR: " + player.getName() + " does not have an attachment when calculating permissions. Aborting permission load.");
+            return;
+        }
         
         //Set the defualt permissions here to "fix" some plugins who cannot listen to the
         //  PermissionsCalculated event
