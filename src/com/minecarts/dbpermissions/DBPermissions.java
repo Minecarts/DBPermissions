@@ -31,13 +31,14 @@ public class DBPermissions extends org.bukkit.plugin.java.JavaPlugin implements 
     protected HashMap<Player,PermissionAttachment> attachments = new HashMap<Player, PermissionAttachment>();
 
     
-    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    @EventHandler(priority = EventPriority.MONITOR)
     public void onPlayerLogin(PlayerLoginEvent event) {
+        if(event.getResult() != PlayerLoginEvent.Result.ALLOWED) return;
         registerPlayer(event.getPlayer());
         calculatePermissions(event.getPlayer());
     }
 
-    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    @EventHandler(priority = EventPriority.MONITOR)
     public void onPlayerQuit(PlayerQuitEvent event) {
         unregisterPlayer(event.getPlayer());
     }
@@ -47,7 +48,7 @@ public class DBPermissions extends org.bukkit.plugin.java.JavaPlugin implements 
         unregisterPlayer(event.getPlayer());
     }
 
-    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    @EventHandler(priority = EventPriority.MONITOR)
     public void onPlayerChangedWorld(PlayerChangedWorldEvent event) {
         calculatePermissions(event.getPlayer(), event.getPlayer().getWorld());
     }
@@ -70,7 +71,7 @@ public class DBPermissions extends org.bukkit.plugin.java.JavaPlugin implements 
                         sender.sendMessage(ChatColor.GRAY + "Refreshing permissions for all online players (async).");
                     } else if(args.length == 2){
                         List<Player> players = Bukkit.matchPlayer(args[1]);
-                        if(players.size() == 0){
+                        if(players.isEmpty()){
                             sender.sendMessage(ChatColor.GRAY + "No players matched query: " + args[1]);
                             return true;
                         }
