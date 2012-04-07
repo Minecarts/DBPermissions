@@ -4,7 +4,6 @@ import java.util.*;
 import java.util.logging.Level;
 import java.text.MessageFormat;
 
-import com.avaje.ebean.LogLevel;
 import com.minecarts.dbquery.DBQuery;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -27,9 +26,9 @@ import org.bukkit.permissions.PermissionAttachment;
 
 public class DBPermissions extends org.bukkit.plugin.java.JavaPlugin implements Listener {
     private DBQuery dbq;
-
-    protected HashMap<Player,PermissionAttachment> attachments = new HashMap<Player, PermissionAttachment>();
-
+    
+    protected Set<Permission> permissions = new HashSet<Permission>();
+    protected HashMap<Player, PermissionAttachment> attachments = new HashMap<Player, PermissionAttachment>();
     
     @EventHandler(priority = EventPriority.MONITOR)
     public void onPlayerLogin(PlayerLoginEvent event) {
@@ -57,40 +56,22 @@ public class DBPermissions extends org.bukkit.plugin.java.JavaPlugin implements 
     @Override
     public void onEnable() {
         dbq = (DBQuery) getServer().getPluginManager().getPlugin("DBQuery");
-
         
         getCommand("perm").setExecutor(new CommandExecutor() {
             public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
                 if(!sender.hasPermission("permission.admin")) return true; // "hide" command output for non-ops
 
                 if(args[0].equalsIgnoreCase("refresh")) {
-                    if(args.length == 1){
-                        for(Player p : getServer().getOnlinePlayers()){
-                            calculatePermissions(p,p.getWorld());
-                        }
-                        sender.sendMessage(ChatColor.GRAY + "Refreshing permissions for all online players (async).");
-                    } else if(args.length == 2){
-                        List<Player> players = Bukkit.matchPlayer(args[1]);
-                        if(players.isEmpty()){
-                            sender.sendMessage(ChatColor.GRAY + "No players matched query: " + args[1]);
-                            return true;
-                        }
-                        for(Player p : players){
-                            sender.sendMessage(ChatColor.GRAY + "Refreshing permissions for " + p.getName() + " (async).");
-                            calculatePermissions(p);
-                        }
-                    } else {
-                        return false;
-                    }
+                    fetchPermissions();
+                    sender.sendMessage(ChatColor.GRAY + "Fetching and recalculating permissions...");
                     return true;
                 }
-                if(args[0].equalsIgnoreCase("reload")) {
+                else if(args[0].equalsIgnoreCase("reload")) {
                     DBPermissions.this.reloadConfig();
                     sender.sendMessage("DBPermissions config reloaded.");
                     return true;
                 }
-
-                if(args[0].equalsIgnoreCase("check")) {
+                else if(args[0].equalsIgnoreCase("check")) {
                     if(args.length != 3) return false;
                     Player p = Bukkit.getPlayer(args[1]);
                     String permission = args[2];
@@ -103,20 +84,17 @@ public class DBPermissions extends org.bukkit.plugin.java.JavaPlugin implements 
         });
 
         getServer().getPluginManager().registerEvents(this, this);
-
-        // calculate permissions for any online players
-        for(Player p : getServer().getOnlinePlayers()){
-            registerPlayer(p);
-            calculatePermissions(p);
-        }
         
-        log("Version {0} enabled with logger \"{1}\"", getDescription().getVersion(), getLogger().getName());
+        for(Player player : Bukkit.getOnlinePlayers()) {
+            registerPlayer(player);
+        }
+        fetchPermissions();
     }
     
     @Override
     public void onDisable() {
-        for(Player p : getServer().getOnlinePlayers()) {
-            unregisterPlayer(p);
+        for(Player player : Bukkit.getOnlinePlayers()) {
+            unregisterPlayer(player);
         }
     }
 
@@ -124,7 +102,7 @@ public class DBPermissions extends org.bukkit.plugin.java.JavaPlugin implements 
     
     public void registerPlayer(Player player) {
         if(attachments.containsKey(player)) {
-            debug("Warning while registering:" + player.getName() + " already had an attachment");
+            debug("Warning while registering: " + player.getName() + " already had an attachment");
             unregisterPlayer(player);
         }
         PermissionAttachment attachment = player.addAttachment(this);
@@ -146,71 +124,83 @@ public class DBPermissions extends org.bukkit.plugin.java.JavaPlugin implements 
             debug("Unregistering for " + player + " failed: No stored attachment");
         }
     }
-
-    public void calculatePermissions(final Player player) {
+    
+    
+    public void calculatePermissions() {
+        for(Player player : Bukkit.getOnlinePlayers()) {
+            calculatePermissions(player);
+        }
+    }
+    public void calculatePermissions(Player player) {
         calculatePermissions(player, player.getWorld());
     }
-    public void calculatePermissions(final Player player, final World world) {
-        debug("Calculating player permissions from database for {0}", player.getName());
-                
+    public void calculatePermissions(Player player, World world) {
+        debug("Calculating player permissions from cache for {0}", player.getName());
+        
         // get this player's attachment
-        final PermissionAttachment attachment = attachments.get(player);
+        PermissionAttachment attachment = attachments.get(player);
         if(attachment == null){
-            log(Level.SEVERE,"ERROR: " + player.getName() + " does not have an attachment when calculating permissions. Aborting permission load.");
+            log(Level.SEVERE, "ERROR: " + player.getName() + " does not have an attachment when calculating permissions. Aborting permission load.");
             return;
         }
         
-        //Set the defualt permissions here to "fix" some plugins who cannot listen to the
-        //  PermissionsCalculated event
-        ConfigurationSection defaults = getConfig().getConfigurationSection("default_permissions");
-        Map<String,Object> keySet = defaults.getValues(true);
-        Iterator it = keySet.entrySet().iterator();
-        while (it.hasNext()) {
-            Map.Entry pairs = (Map.Entry)it.next();
-            debug("Set default permission: " + pairs.getKey().toString() + " = " + Boolean.parseBoolean(pairs.getValue().toString()));
-            attachment.setPermission(pairs.getKey().toString(),Boolean.parseBoolean(pairs.getValue().toString()));
-            it.remove(); // avoids a ConcurrentModificationException
+        // unset existing permissions on player
+        for(String key : attachment.getPermissions().keySet()) {
+            attachment.unsetPermission(key);
         }
-
-        // find the group permissions (and any default groups), and assign those permissions
-        new Query("SELECT `permissions`.* FROM `permissions`, `groups` WHERE `groups`.`group` = ? AND `permissions`.`identifier` = `groups`.`group` AND `permissions`.`type` = 'group'"
-               + " UNION SELECT `permissions`.* FROM `permissions`, `player_groups` WHERE `player_groups`.`player` = ? AND `permissions`.`identifier` = `player_groups`.`group` AND `permissions`.`type` = 'group'"
-               + " UNION SELECT `permissions`.* FROM `permissions` WHERE `permissions`.`identifier` = ? AND `permissions`.`type` = 'player'") {
+        
+        // set new permissions on player
+        for(Permission perm : permissions) {
+            // sorting in the query will take care of wildcard permission priority
+            // may need to handle it manually if the wildcard changes or player names get symbols
+            if(!Permission.WILDCARD.equals(perm.player) && !player.getName().equalsIgnoreCase(perm.player)) continue;
+            if(!Permission.WILDCARD.equals(perm.world) && !world.getName().equalsIgnoreCase(perm.world)) continue;
             
-            @Override
-            public void onBeforeCallback() {
-                debug("Unsetting player permissions for {0}", player.getName());
-                // unset old player permissions
-                if(attachment != null) {
-                    for(String key : attachment.getPermissions().keySet()) {
-                        attachment.unsetPermission(key);
-                    }
-                }
-            }
-            
+            attachment.setPermission(perm.permission, perm.value);
+        }
+        
+        getServer().getPluginManager().callEvent(new PermissionsCalculated(player));
+    }
+    
+    
+    private void fetchPermissions() {
+        new Query(" SELECT `permission`, `identifier` AS `player`, `world`, `value` "
+                + " FROM `permissions` "
+                + " WHERE `type` = 'player' "
+                
+                + " UNION "
+                
+                + " SELECT `p`.`permission`, `pg`.`player`, `p`.`world`, `p`.`value` "
+                + " FROM `permissions` `p` "
+                + "     JOIN `player_groups` `pg` ON `pg`.`group` = `p`.`identifier` "
+                + " WHERE `p`.`type` = 'group' "
+                
+                + " UNION "
+                
+                + " SELECT `p`.`permission`, ?, `p`.`world`, `p`.`value` "
+                + " FROM `permissions` `p` "
+                + "     JOIN `groups` `g` ON `g`.`group` = `p`.`identifier` "
+                + " WHERE `p`.`type` = 'group' "
+                + " AND `g`.`default` = TRUE "
+                
+                + " ORDER BY `player`, `world` ") {
+                    
             @Override
             public void onFetch(ArrayList<HashMap> rows) {
-                debug("Setting new player permissions for {0}", player.getName());
-                // set new player permissions
+                permissions.clear();
+                
                 for(HashMap row : rows) {
-                    String w = (String) row.get("world");
-                    if(world.getName().equalsIgnoreCase(w) || w.equals("*")) {
-                        attachment.setPermission((String) row.get("permission"), (Integer) row.get("value") == 1);
-                        debug("Set [" + row.get("type") + ":" + row.get("identifier") + "][W:" + row.get("world") + "] " + row.get("permission") + " for " + player.getName() + " to " + row.get("value"));
-                    }
+                    permissions.add(new Permission(
+                            (String) row.get("permission"),
+                            (String) row.get("player"),
+                            (String) row.get("world"),
+                            (Integer) row.get("value") != 0));
                 }
+                
+                calculatePermissions();
             }
             
-            @Override
-            public void onAfterCallback() {
-                debug("Calling event PermissionsCalculated for {0}", player.getName());
-                getServer().getPluginManager().callEvent(new PermissionsCalculated(player));
-            }
-            
-        }.fetch(getConfig().getString("default_group"),
-            player.getName(),
-            player.getName());
-        
+        }.fetch(Permission.WILDCARD);
     }
     
     
