@@ -14,4 +14,9 @@ public class Permission {
         this.world = world;
         this.value = value;
     }
+    
+    @Override
+    public String toString() {
+        return String.format("Permission{permission=%s, player=%s, world=%s, value=%s}", permission, player, world, value);
+    }
 }

@@ -27,12 +27,13 @@ import org.bukkit.permissions.PermissionAttachment;
 public class DBPermissions extends org.bukkit.plugin.java.JavaPlugin implements Listener {
     private DBQuery dbq;
     
-    protected Set<Permission> permissions = new HashSet<Permission>();
+    protected List<Permission> permissions = new ArrayList<Permission>();
     protected HashMap<Player, PermissionAttachment> attachments = new HashMap<Player, PermissionAttachment>();
     
     @EventHandler(priority = EventPriority.MONITOR)
     public void onPlayerLogin(PlayerLoginEvent event) {
         if(event.getResult() != PlayerLoginEvent.Result.ALLOWED) return;
+        
         registerPlayer(event.getPlayer());
         calculatePermissions(event.getPlayer());
     }
@@ -42,14 +43,9 @@ public class DBPermissions extends org.bukkit.plugin.java.JavaPlugin implements 
         unregisterPlayer(event.getPlayer());
     }
 
-    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
-    public void onPlayerKick(PlayerKickEvent event) {
-        unregisterPlayer(event.getPlayer());
-    }
-
-    @EventHandler(priority = EventPriority.MONITOR)
+    @EventHandler(priority = EventPriority.LOWEST)
     public void onPlayerChangedWorld(PlayerChangedWorldEvent event) {
-        calculatePermissions(event.getPlayer(), event.getPlayer().getWorld());
+        calculatePermissions(event.getPlayer());
     }
     
     
@@ -105,24 +101,22 @@ public class DBPermissions extends org.bukkit.plugin.java.JavaPlugin implements 
             debug("Warning while registering: " + player.getName() + " already had an attachment");
             unregisterPlayer(player);
         }
+        
         PermissionAttachment attachment = player.addAttachment(this);
         attachments.put(player, attachment);
         debug("Added attachment for " + player.getName());
     }
     
     public void unregisterPlayer(Player player) {
-        if(attachments.containsKey(player)) {
-            try {
-                player.removeAttachment(attachments.get(player));
-            }
-            catch (IllegalArgumentException ex) {
-                debug("Unregistering for " + player.getName() + " failed: No attachment");
-            }
-            this.attachments.remove(player);
-            debug("Attachment unregistered for " + player.getName());
-        } else {
+        PermissionAttachment attachment = attachments.get(player);
+        if(attachment == null) {
             debug("Unregistering for " + player + " failed: No stored attachment");
+            return;
         }
+        
+        player.removeAttachment(attachment);
+        attachments.remove(player);
+        debug("Attachment unregistered for " + player.getName());
     }
     
     
@@ -135,7 +129,7 @@ public class DBPermissions extends org.bukkit.plugin.java.JavaPlugin implements 
         calculatePermissions(player, player.getWorld());
     }
     public void calculatePermissions(Player player, World world) {
-        debug("Calculating player permissions from cache for {0}", player.getName());
+        debug("Calculating permissions from cache for player {0} in world {1}", player.getName(), world.getName());
         
         // get this player's attachment
         PermissionAttachment attachment = attachments.get(player);
@@ -146,6 +140,7 @@ public class DBPermissions extends org.bukkit.plugin.java.JavaPlugin implements 
         
         // unset existing permissions on player
         for(String key : attachment.getPermissions().keySet()) {
+            debug("Unsetting permission node {0} from attachment {1} for player {0}", key, attachment, player.getName());
             attachment.unsetPermission(key);
         }
         
@@ -153,12 +148,20 @@ public class DBPermissions extends org.bukkit.plugin.java.JavaPlugin implements 
         for(Permission perm : permissions) {
             // sorting in the query will take care of wildcard permission priority
             // may need to handle it manually if the wildcard changes or player names get symbols
-            if(!Permission.WILDCARD.equals(perm.player) && !player.getName().equalsIgnoreCase(perm.player)) continue;
-            if(!Permission.WILDCARD.equals(perm.world) && !world.getName().equalsIgnoreCase(perm.world)) continue;
+            if(!Permission.WILDCARD.equals(perm.player) && !player.getName().equalsIgnoreCase(perm.player)) {
+                //debug("No match for player {0} on permission {1}", player.getName(), perm);
+                continue;
+            }
+            if(!Permission.WILDCARD.equals(perm.world) && !world.getName().equalsIgnoreCase(perm.world)) {
+                //debug("No match for world {0} on permission {1}", world.getName(), perm);
+                continue;
+            }
             
             attachment.setPermission(perm.permission, perm.value);
+            debug("Attached permission {0} to attachment {1} for player {2}", perm, attachment, player.getName());
         }
         
+        debug("Calling PermissionsCalculated event for player {0}", player.getName());
         getServer().getPluginManager().callEvent(new PermissionsCalculated(player));
     }
     
@@ -181,26 +184,31 @@ public class DBPermissions extends org.bukkit.plugin.java.JavaPlugin implements 
                 + " FROM `permissions` `p` "
                 + "     JOIN `groups` `g` ON `g`.`group` = `p`.`identifier` "
                 + " WHERE `p`.`type` = 'group' "
-                + " AND `g`.`default` = TRUE "
+                + "     AND `g`.`default` = TRUE "
                 
                 + " ORDER BY `player`, `world` ") {
                     
             @Override
             public void onFetch(ArrayList<HashMap> rows) {
+                debug("fetchPermissions got {0} rows", rows.size());
                 permissions.clear();
                 
                 for(HashMap row : rows) {
-                    permissions.add(new Permission(
+                    Permission perm = new Permission(
                             (String) row.get("permission"),
                             (String) row.get("player"),
                             (String) row.get("world"),
-                            (Integer) row.get("value") != 0));
+                            (Integer) row.get("value") != 0);
+                    permissions.add(perm);
+                    debug("Added permission {0} to cache", perm);
                 }
                 
+                debug("Recalculating permissions for all players");
                 calculatePermissions();
             }
             
         }.fetch(Permission.WILDCARD);
+        debug("Fetching permissions from database");
     }
     
     
