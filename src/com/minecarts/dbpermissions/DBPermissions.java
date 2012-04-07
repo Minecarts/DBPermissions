@@ -30,22 +30,25 @@ public class DBPermissions extends org.bukkit.plugin.java.JavaPlugin implements 
     protected List<Permission> permissions = new ArrayList<Permission>();
     protected HashMap<Player, PermissionAttachment> attachments = new HashMap<Player, PermissionAttachment>();
     
-    @EventHandler(priority = EventPriority.MONITOR)
+    @EventHandler(priority = EventPriority.LOWEST)
     public void onPlayerLogin(PlayerLoginEvent event) {
-        if(event.getResult() != PlayerLoginEvent.Result.ALLOWED) return;
-        
         registerPlayer(event.getPlayer());
+        calculatePermissions(event.getPlayer());
+    }
+    
+    @EventHandler(priority = EventPriority.LOWEST)
+    public void onPlayerJoin(PlayerJoinEvent event) {
+        calculatePermissions(event.getPlayer());
+    }
+
+    @EventHandler(priority = EventPriority.LOWEST)
+    public void onPlayerChangedWorld(PlayerChangedWorldEvent event) {
         calculatePermissions(event.getPlayer());
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onPlayerQuit(PlayerQuitEvent event) {
         unregisterPlayer(event.getPlayer());
-    }
-
-    @EventHandler(priority = EventPriority.LOWEST)
-    public void onPlayerChangedWorld(PlayerChangedWorldEvent event) {
-        calculatePermissions(event.getPlayer());
     }
     
     
