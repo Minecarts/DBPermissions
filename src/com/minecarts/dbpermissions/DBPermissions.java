@@ -170,6 +170,8 @@ public class DBPermissions extends org.bukkit.plugin.java.JavaPlugin implements 
     
     
     private void fetchPermissions() {
+        log("Fetching permissions from database...");
+        
         new Query(" SELECT `permission`, `identifier` AS `player`, `world`, `value` "
                 + " FROM `permissions` "
                 + " WHERE `type` = 'player' "
@@ -193,7 +195,7 @@ public class DBPermissions extends org.bukkit.plugin.java.JavaPlugin implements 
                     
             @Override
             public void onFetch(ArrayList<HashMap> rows) {
-                debug("fetchPermissions got {0} rows", rows.size());
+                log("fetchPermissions got {0} rows", rows.size());
                 permissions.clear();
                 
                 for(HashMap row : rows) {
@@ -210,8 +212,7 @@ public class DBPermissions extends org.bukkit.plugin.java.JavaPlugin implements 
                 calculatePermissions();
             }
             
-        }.fetch(Permission.WILDCARD);
-        debug("Fetching permissions from database");
+        }.sync().fetch(Permission.WILDCARD);
     }
     
     
