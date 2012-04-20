@@ -82,12 +82,18 @@ public class DBPermissions extends org.bukkit.plugin.java.JavaPlugin implements 
             }
         });
 
-        getServer().getPluginManager().registerEvents(this, this);
+        Bukkit.getPluginManager().registerEvents(this, this);
+        
         
         for(Player player : Bukkit.getOnlinePlayers()) {
             registerPlayer(player);
         }
-        fetchPermissions();
+        
+        Bukkit.getScheduler().scheduleSyncRepeatingTask(this, new Runnable() {
+            public void run() {
+                fetchPermissions();
+            }
+        }, 0, 20 * 60 * 2);
     }
     
     @Override
