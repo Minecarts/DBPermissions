@@ -93,31 +93,6 @@ public class DBPermissions extends org.bukkit.plugin.java.JavaPlugin implements 
     public void onPlayerChangedWorld(PlayerChangedWorldEvent event) {
         calculatePermissions(event.getPlayer());
     }
-
-
-    
-    public void registerPlayer(Player player) {
-        if(attachments.containsKey(player)) {
-            debug("Warning while registering: " + player.getName() + " already had an attachment");
-            unregisterPlayer(player);
-        }
-        
-        PermissionAttachment attachment = player.addAttachment(this);
-        attachments.put(player, attachment);
-        debug("Added attachment for " + player.getName());
-    }
-    
-    public void unregisterPlayer(Player player) {
-        PermissionAttachment attachment = attachments.get(player);
-        if(attachment == null) {
-            debug("Unregistering for " + player + " failed: No stored attachment");
-            return;
-        }
-        
-        player.removeAttachment(attachment);
-        attachments.remove(player);
-        debug("Attachment unregistered for " + player.getName());
-    }
     
     
     public void calculatePermissions() {
