@@ -27,29 +27,8 @@ import org.bukkit.permissions.PermissionAttachment;
 public class DBPermissions extends org.bukkit.plugin.java.JavaPlugin implements Listener {
     private DBQuery dbq;
     
-    protected List<Permission> permissions = new ArrayList<Permission>();
+    protected List<PermissionValue> permissions = new ArrayList<PermissionValue>();
     protected HashMap<Player, PermissionAttachment> attachments = new HashMap<Player, PermissionAttachment>();
-    
-    @EventHandler(priority = EventPriority.LOWEST)
-    public void onPlayerLogin(PlayerLoginEvent event) {
-        registerPlayer(event.getPlayer());
-        calculatePermissions(event.getPlayer());
-    }
-    
-    @EventHandler(priority = EventPriority.LOWEST)
-    public void onPlayerJoin(PlayerJoinEvent event) {
-        calculatePermissions(event.getPlayer());
-    }
-
-    @EventHandler(priority = EventPriority.LOWEST)
-    public void onPlayerChangedWorld(PlayerChangedWorldEvent event) {
-        calculatePermissions(event.getPlayer());
-    }
-
-    @EventHandler(priority = EventPriority.MONITOR)
-    public void onPlayerQuit(PlayerQuitEvent event) {
-        unregisterPlayer(event.getPlayer());
-    }
     
     
     @Override
@@ -84,11 +63,6 @@ public class DBPermissions extends org.bukkit.plugin.java.JavaPlugin implements 
 
         Bukkit.getPluginManager().registerEvents(this, this);
         
-        
-        for(Player player : Bukkit.getOnlinePlayers()) {
-            registerPlayer(player);
-        }
-        
         Bukkit.getScheduler().scheduleSyncRepeatingTask(this, new Runnable() {
             public void run() {
                 fetchPermissions();
@@ -98,9 +72,26 @@ public class DBPermissions extends org.bukkit.plugin.java.JavaPlugin implements 
     
     @Override
     public void onDisable() {
-        for(Player player : Bukkit.getOnlinePlayers()) {
-            unregisterPlayer(player);
+        for(PermissionAttachment attachment : attachments.values()) {
+            attachment.remove();
         }
+        attachments.clear();
+    }
+    
+    
+    @EventHandler(priority = EventPriority.LOWEST)
+    public void onPlayerLogin(PlayerLoginEvent event) {
+        calculatePermissions(event.getPlayer());
+    }
+    
+    @EventHandler(priority = EventPriority.LOWEST)
+    public void onPlayerJoin(PlayerJoinEvent event) {
+        calculatePermissions(event.getPlayer());
+    }
+
+    @EventHandler(priority = EventPriority.LOWEST)
+    public void onPlayerChangedWorld(PlayerChangedWorldEvent event) {
+        calculatePermissions(event.getPlayer());
     }
 
 
@@ -143,25 +134,28 @@ public class DBPermissions extends org.bukkit.plugin.java.JavaPlugin implements 
         // get this player's attachment
         PermissionAttachment attachment = attachments.get(player);
         if(attachment == null){
-            log(Level.SEVERE, "ERROR: " + player.getName() + " does not have an attachment when calculating permissions. Aborting permission load.");
-            return;
+            // create permission attachment for player
+            debug("No permission attachment found for player {0}, creating attachment", player.getName());
+            attachment = player.addAttachment(this);
+            attachments.put(player, attachment);
         }
-        
-        // unset existing permissions on player
-        for(String key : attachment.getPermissions().keySet()) {
-            debug("Unsetting permission node {0} from attachment {1} for player {0}", key, attachment, player.getName());
-            attachment.unsetPermission(key);
+        else {
+            // unset existing permissions on player
+            for(String key : attachment.getPermissions().keySet()) {
+                debug("Unsetting permission node {0} from attachment {1} for player {0}", key, attachment, player.getName());
+                attachment.unsetPermission(key);
+            }
         }
         
         // set new permissions on player
-        for(Permission perm : permissions) {
+        for(PermissionValue perm : permissions) {
             // sorting in the query will take care of wildcard permission priority
             // may need to handle it manually if the wildcard changes or player names get symbols
-            if(!Permission.WILDCARD.equals(perm.player) && !player.getName().equalsIgnoreCase(perm.player)) {
+            if(!PermissionValue.WILDCARD.equals(perm.player) && !player.getName().equalsIgnoreCase(perm.player)) {
                 //debug("No match for player {0} on permission {1}", player.getName(), perm);
                 continue;
             }
-            if(!Permission.WILDCARD.equals(perm.world) && !world.getName().equalsIgnoreCase(perm.world)) {
+            if(!PermissionValue.WILDCARD.equals(perm.world) && !world.getName().equalsIgnoreCase(perm.world)) {
                 //debug("No match for world {0} on permission {1}", world.getName(), perm);
                 continue;
             }
@@ -205,7 +199,7 @@ public class DBPermissions extends org.bukkit.plugin.java.JavaPlugin implements 
                 permissions.clear();
                 
                 for(HashMap row : rows) {
-                    Permission perm = new Permission(
+                    PermissionValue perm = new PermissionValue(
                             (String) row.get("permission"),
                             (String) row.get("player"),
                             (String) row.get("world"),
@@ -218,7 +212,7 @@ public class DBPermissions extends org.bukkit.plugin.java.JavaPlugin implements 
                 calculatePermissions();
             }
             
-        }.sync().fetch(Permission.WILDCARD);
+        }.sync().fetch(PermissionValue.WILDCARD);
     }
     
     
