@@ -40,7 +40,7 @@ public class DBPermissions extends org.bukkit.plugin.java.JavaPlugin implements 
                 if(!sender.hasPermission("permission.admin")) return true; // "hide" command output for non-ops
 
                 if(args[0].equalsIgnoreCase("refresh")) {
-                    fetchPermissions();
+                    fetchPermissions(true);
                     sender.sendMessage(ChatColor.GRAY + "Fetching and recalculating permissions...");
                     return true;
                 }
@@ -65,7 +65,7 @@ public class DBPermissions extends org.bukkit.plugin.java.JavaPlugin implements 
         
         Bukkit.getScheduler().scheduleSyncRepeatingTask(this, new Runnable() {
             public void run() {
-                fetchPermissions();
+                fetchPermissions(false);
             }
         }, 0, 20 * 60 * 2);
     }
@@ -144,7 +144,7 @@ public class DBPermissions extends org.bukkit.plugin.java.JavaPlugin implements 
     }
     
     
-    private void fetchPermissions() {
+    private void fetchPermissions(boolean async) {
         log("Fetching permissions from database...");
         
         new Query(" SELECT `permission`, `identifier` AS `player`, `world`, `value` "
@@ -187,7 +187,7 @@ public class DBPermissions extends org.bukkit.plugin.java.JavaPlugin implements 
                 calculatePermissions();
             }
             
-        }.fetch(PermissionValue.WILDCARD);
+        }.async(async).fetch(PermissionValue.WILDCARD);
     }
     
     
