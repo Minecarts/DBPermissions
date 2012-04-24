@@ -187,7 +187,7 @@ public class DBPermissions extends org.bukkit.plugin.java.JavaPlugin implements 
                 calculatePermissions();
             }
             
-        }.sync().fetch(PermissionValue.WILDCARD);
+        }.fetch(PermissionValue.WILDCARD);
     }
     
     
